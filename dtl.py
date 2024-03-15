@@ -89,23 +89,27 @@ def cli():
 
 @cli.command('create')
 @click.argument('project_path')
-def new_project(project_path):
-    """Create a new project."""
+@click.option('--init', is_flag=True, help="Use an existing directory")
+def new_project(project_path, init=False):
+    """Create a new project"""
 
     project_path = _format_path(project_path)
     _set_config_paths(project_path)
 
-    if osutil.dir_exists(project_path):
+    if osutil.dir_exists(project_path) and init is False:
         click.echo(click.style('[ERROR] The directory "' + project_path + '" already exists!', fg='red'))
         exit(1)
-    else:
-        click.echo('Creating: ' + project_path)
+    elif osutil.dir_exists(project_path) and init is True:
+        click.echo(click.style('[WARNING] The directory "' + project_path + '" already exists!', fg='yellow'))
+
+    click.echo('Creating: ' + project_path)
+    if not init:
         osutil.mkdir(project_path)
-        osutil.mkdir(conf['configdir'])
-        osutil.mkdir(conf['cachedir'])
-        # osutil.mkdir(project_path + '/images')
-        osutil.echo(project_path, dst=conf['last'])
-        osutil.echo('', dst=conf['firstfun'])
+    osutil.mkdir(conf['configdir'])
+    osutil.mkdir(conf['cachedir'])
+    # osutil.mkdir(project_path + '/images')
+    osutil.echo(project_path, dst=conf['last'])
+    osutil.echo('', dst=conf['firstfun'])
 
 @cli.command('open')
 @click.argument('project_path')
