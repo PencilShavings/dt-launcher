@@ -11,6 +11,13 @@ import osutil
 __version__ = '0.1'
 
 
+conf = {}
+
+def _set_config_paths(project_path):
+    conf['configdir'] = project_path + '/.darktable'
+    conf['cachedir'] = project_path + '/.darktable/cache'
+    conf['librarydb'] = project_path + '/.darktable/library.db'
+
 def _get_old_path(library, project):
     """Returns the old location path"""
 
@@ -96,12 +103,13 @@ def new_project(project_path):
     """Create a new project."""
 
     project_path = _format_path(project_path)
+    _set_config_paths(project_path)
 
     if not osutil.dir_exists(project_path):
         click.echo('Creating: ' + project_path)
         osutil.mkdir(project_path)
-        osutil.mkdir(project_path + '/.darktable')
-        osutil.mkdir(project_path + '/.darktable/cache')
+        osutil.mkdir(conf['configdir'])
+        osutil.mkdir(conf['cachedir'])
         # osutil.mkdir(project_path + '/images')
         # osutil.echo(project_path, project_path + '/.last_project_location')
 
@@ -116,8 +124,10 @@ def open_project(project_path, use_flatpak):
     """Open an existing project."""
 
     project_path = _format_path(project_path)
+    _set_config_paths(project_path)
+
+    library = conf['librarydb']
     project_name = project_path.split('/')[-1]
-    library = project_path + '/.darktable/library.db'
 
     if not osutil.dir_exists(project_path):
         click.echo('"' + project_path + '" does not exist!')
