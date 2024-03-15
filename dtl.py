@@ -17,18 +17,8 @@ def _set_config_paths(project_path):
     conf['configdir'] = project_path + '/.darktable'
     conf['cachedir'] = project_path + '/.darktable/cache'
     conf['librarydb'] = project_path + '/.darktable/library.db'
-
-def _get_old_path(library, project):
-    """Returns the old location path"""
-
-    conn = sqlite3.connect(library)
-    cur = conn.cursor()
-    ret = cur.execute("""select id, folder from film_rolls""")
-
-    old_path = str(ret.fetchall()[0][1]).split(project)[0] + project
-    conn.close()
-
-    return old_path
+    conf['last'] = project_path + '/.darktable/.last_location'
+    conf['firstfun'] = project_path + '/.darktable/.firstrun'
 
 def _launch_dt(project_path, use_flatpak):
     """Launch Darktable"""
@@ -105,17 +95,17 @@ def new_project(project_path):
     project_path = _format_path(project_path)
     _set_config_paths(project_path)
 
-    if not osutil.dir_exists(project_path):
+    if osutil.dir_exists(project_path):
+        click.echo(click.style('[ERROR] The directory "' + project_path + '" already exists!', fg='red'))
+        exit(1)
+    else:
         click.echo('Creating: ' + project_path)
         osutil.mkdir(project_path)
         osutil.mkdir(conf['configdir'])
         osutil.mkdir(conf['cachedir'])
         # osutil.mkdir(project_path + '/images')
-        # osutil.echo(project_path, project_path + '/.last_project_location')
-
-    else:
-        print('The directory "' + project_path + '" already exists!')
-        click.echo('The directory "' + project_path + '" already exists!')
+        osutil.echo(project_path, dst=conf['last'])
+        osutil.echo('', dst=conf['firstfun'])
 
 @cli.command('open')
 @click.argument('project_path')
@@ -126,21 +116,34 @@ def open_project(project_path, use_flatpak):
     project_path = _format_path(project_path)
     _set_config_paths(project_path)
 
+    if not osutil.file_exists(conf['last']):
+        click.echo(click.style('[ERROR] "' + conf['last'] + '" dose not exist!', fg='red'))
+        exit(1)
+
+    # Vars
+    last_location = osutil.cat(conf['last'])
+    current_location = project_path
     library = conf['librarydb']
-    project_name = project_path.split('/')[-1]
+    firstrun = conf['firstfun']
 
-    if not osutil.dir_exists(project_path):
-        click.echo('"' + project_path + '" does not exist!')
+    # Check if the darktable library exists.
+    # It may not exist if the project was just created and darktable has not yet been open.
+    # This is just a check.
+    if osutil.file_exists(library):
+        click.echo(click.style('Found: "' + library + '"', fg='green'))
     else:
-        print(library)
-        if osutil.file_exists(library):
-            old_path = _get_old_path(library, project_name)
+        click.secho('[WARNING] "' + library + '" does not exist!\n'
+                                              '          This most likely means that darktable hasn\'t been initialized yet.',
+                    fg='yellow')
 
-            if project_path != old_path:
-                click.echo('Updating location')
-                _update_base_path(library, old_path, project_path)
-            else:
-                click.echo('Locations match')
+    # Check if this is the first time opening the project.
+    if not osutil.file_exists(firstrun):
+        # Check to see if the project has moved
+        if last_location != current_location:
+            click.echo(click.style('[WARNING] It looks like the project has moved', fg='yellow'))
+            _update_base_path(library, last_location, current_location)
+        else:
+            click.echo('Locations match')
 
     _launch_dt(project_path, use_flatpak)
 
