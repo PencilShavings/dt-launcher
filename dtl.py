@@ -18,6 +18,7 @@ def _set_config_paths(project_path):
     conf['librarydb'] = project_path + '/.darktable/library.db'
     conf['last'] = project_path + '/.darktable/.last_location'
     conf['firstfun'] = project_path + '/.darktable/.firstrun'
+    conf['rc'] = project_path + '/.darktable/darktablerc'
 
 def _launch_dt(project_path, use_flatpak):
     """Launch Darktable"""
@@ -73,6 +74,11 @@ def _update_base_path(library, old_path, new_path):
     conn.close()
     osutil.echo(new_path, dst=conf['last'])
     click.echo("Updated %s film roll(s) from %s to %s" % (counter, old_path, new_path))
+
+    # Replace all instances of the old location with the new location in darktablerc
+    rc_content = osutil.cat(conf['rc'])
+    click.secho('Updating darktablerc', fg='white')
+    osutil.echo(rc_content.replace(old_path, new_path), dst=conf['rc'])
 
 
 @click.group()
