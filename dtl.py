@@ -3,7 +3,6 @@
 
 import sqlite3
 import os
-import re
 import subprocess
 import click
 import osutil
@@ -58,27 +57,22 @@ def _format_path(path):
     return path
 
 def _update_base_path(library, old_path, new_path):
-    """Renames the last location.
-    Taken from move_darktable_photos.py"""
+    click.secho('Updating film roll location', fg='yellow')
 
-    library_path = os.path.expanduser(library)
-    new_dir = re.sub(r'/$', '', os.path.expanduser(new_path))
-    old_dir = re.sub(r'/$', '', os.path.expanduser(old_path))
-
-    conn = sqlite3.connect(library_path)
+    conn = sqlite3.connect(library)
     cur = conn.cursor()
-    ret = cur.execute("""select id, folder from film_rolls""")
+    film_rolls = cur.execute("""select id, folder from film_rolls""")
 
-    cnt = 0
-    for elem in ret.fetchall():
-        new_folder = elem[1].replace(old_dir, new_dir)
-        cur.execute("""update film_rolls set folder='%s' where id='%s'""" %
-                    (new_folder, elem[0]))
-        cnt += 1
-
+    counter = 0
+    for film_roll in film_rolls.fetchall():
+        if str(film_roll[1]).startswith(old_path):
+            new_folder = str(film_roll[1]).replace(old_path, new_path)
+            cur.execute("""update film_rolls set folder='%s' where id='%s'""" % (new_folder, film_roll[0]))
+            counter += 1
     conn.commit()
-
-    click.echo("Renamed %s film rolls from %s to %s" % (cnt, old_dir, new_dir))
+    conn.close()
+    osutil.echo(new_path, dst=conf['last'])
+    click.echo("Updated %s film roll(s) from %s to %s" % (counter, old_path, new_path))
 
 
 @click.group()
