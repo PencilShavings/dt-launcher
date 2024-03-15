@@ -6,6 +6,7 @@ import os
 import subprocess
 import click
 import osutil
+import shlex
 
 __version__ = '0.1'
 
@@ -20,28 +21,39 @@ def _set_config_paths(project_path):
     conf['firstfun'] = project_path + '/.darktable/.firstrun'
     conf['rc'] = project_path + '/.darktable/darktablerc'
 
-def _launch_dt(project_path, use_flatpak):
+def _launch_dt(use_flatpak, detach):
     """Launch Darktable"""
 
-    librarydb = project_path + '/.darktable/library.db'
-    cachedir = project_path + '/.darktable/cache'
-    configdir = project_path + '/.darktable'
+    librarydb = conf['librarydb']
+    cachedir = conf['cachedir']
+    configdir = conf['configdir']
+    firstrun = conf['firstfun']
+
+    # Check if this is the first time opening the project.
+    if osutil.file_exists(firstrun):
+        # Remove the firstrun file.
+        osutil.rm(firstrun)
 
     cmd_options = '--cachedir ' + cachedir + ' --configdir ' + configdir + ' --library ' + librarydb
 
     flatpak_cmd = 'flatpak run --command=darktable org.darktable.Darktable ' + cmd_options
-    usr_bin_cmd = 'darktable ' + cmd_options
+    usr_bin_cmd = '/usr/bin/darktable ' + cmd_options
 
     if not osutil.file_exists('/usr/bin/darktable') and use_flatpak is False:
         click.echo('"/usr/bin/darktable" not found. Switching to Flatpak')
         use_flatpak = True
 
     if use_flatpak:
+        cmd = shlex.split(flatpak_cmd)
         click.echo('Running: ' + flatpak_cmd)
-        subprocess.call(flatpak_cmd, shell=True)
     else:
+        cmd = shlex.split(usr_bin_cmd)
         click.echo('Running: ' + usr_bin_cmd)
-        subprocess.call('darktable ' + cmd_options, shell=True)
+
+    if detach:
+        subprocess.Popen(cmd, start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    else:
+        subprocess.run(cmd, start_new_session=False)
 
 
 def _format_path(path):
@@ -113,9 +125,10 @@ def new_project(project_path, init=False):
 
 @cli.command('open')
 @click.argument('project_path')
-@click.option('--use-flatpak', is_flag=True, help="Use the Darktable flatpak.")
-def open_project(project_path, use_flatpak):
-    """Open an existing project."""
+@click.option('-d', '--detach', is_flag=True, help="Detach darktable into it's own process")
+@click.option('--use-flatpak', is_flag=True, help="Use the Darktable flatpak")
+def open_project(project_path, detach=False, use_flatpak=False):
+    """Open an existing project"""
 
     project_path = _format_path(project_path)
     _set_config_paths(project_path)
@@ -137,7 +150,7 @@ def open_project(project_path, use_flatpak):
         click.echo(click.style('Found: "' + library + '"', fg='green'))
     else:
         click.secho('[WARNING] "' + library + '" does not exist!\n'
-                                              '          This most likely means that darktable hasn\'t been initialized yet.',
+                    '          This most likely means that darktable hasn\'t been initialized yet.',
                     fg='yellow')
 
     # Check if this is the first time opening the project.
@@ -149,7 +162,7 @@ def open_project(project_path, use_flatpak):
         else:
             click.echo('Locations match')
 
-    _launch_dt(project_path, use_flatpak)
+    _launch_dt(use_flatpak, detach)
 
 
 if __name__ == '__main__':
