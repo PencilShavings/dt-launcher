@@ -7,6 +7,7 @@ import subprocess
 import click
 import osutil
 import shlex
+import shutil
 
 __version__ = '0.1'
 
@@ -34,21 +35,34 @@ def _launch_dt(use_flatpak, detach):
         # Remove the firstrun file.
         osutil.rm(firstrun)
 
+    darktable = ''
     cmd_options = '--cachedir ' + cachedir + ' --configdir ' + configdir + ' --library ' + librarydb
 
-    flatpak_cmd = 'flatpak run --command=darktable org.darktable.Darktable ' + cmd_options
-    usr_bin_cmd = '/usr/bin/darktable ' + cmd_options
+    flatpak_cmd = shutil.which('org.darktable.Darktable')
+    usr_bin_cmd = shutil.which('darktable')
 
-    if not osutil.file_exists('/usr/bin/darktable') and use_flatpak is False:
-        click.echo('"/usr/bin/darktable" not found. Switching to Flatpak')
-        use_flatpak = True
+    if flatpak_cmd is None and usr_bin_cmd is None:
+        click.secho('[ERROR] Darktable found', fg='red')
+        exit(1)
 
-    if use_flatpak:
-        cmd = shlex.split(flatpak_cmd)
-        click.echo('Running: ' + flatpak_cmd)
-    else:
-        cmd = shlex.split(usr_bin_cmd)
-        click.echo('Running: ' + usr_bin_cmd)
+    if use_flatpak is False and usr_bin_cmd is not None:
+        darktable = usr_bin_cmd
+    elif use_flatpak is True and usr_bin_cmd is not None:
+        darktable = flatpak_cmd
+    elif use_flatpak is False and flatpak_cmd is not None:
+        darktable = usr_bin_cmd
+    elif use_flatpak is True and flatpak_cmd is not None:
+        darktable = flatpak_cmd
+
+    if darktable is None and use_flatpak is False:
+        click.secho('[Error] darktable not found!', fg='red')
+        exit(1)
+    elif darktable is None and use_flatpak is True:
+        click.secho('[Error] org.darktable.Darktable not found!', fg='red')
+        exit(1)
+
+    cmd = shlex.split(darktable + ' ' + cmd_options)
+    click.secho('[Running] ' + darktable + ' ' + cmd_options)
 
     if detach:
         subprocess.Popen(cmd, start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
