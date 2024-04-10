@@ -22,7 +22,8 @@ def _set_config_paths(project_path):
     conf['firstfun'] = project_path + '/.darktable/.firstrun'
     conf['rc'] = project_path + '/.darktable/darktablerc'
 
-def _launch_dt(use_flatpak, detach):
+
+def _launch_dt(darktable, detach):
     """Launch Darktable"""
 
     librarydb = conf['librarydb']
@@ -35,31 +36,7 @@ def _launch_dt(use_flatpak, detach):
         # Remove the firstrun file.
         osutil.rm(firstrun)
 
-    darktable = ''
     cmd_options = '--cachedir ' + cachedir + ' --configdir ' + configdir + ' --library ' + librarydb
-
-    flatpak_cmd = shutil.which('org.darktable.Darktable')
-    usr_bin_cmd = shutil.which('darktable')
-
-    if flatpak_cmd is None and usr_bin_cmd is None:
-        click.secho('[ERROR] Darktable found', fg='red')
-        exit(1)
-
-    if use_flatpak is False and usr_bin_cmd is not None:
-        darktable = usr_bin_cmd
-    elif use_flatpak is True and usr_bin_cmd is not None:
-        darktable = flatpak_cmd
-    elif use_flatpak is False and flatpak_cmd is not None:
-        darktable = usr_bin_cmd
-    elif use_flatpak is True and flatpak_cmd is not None:
-        darktable = flatpak_cmd
-
-    if darktable is None and use_flatpak is False:
-        click.secho('[Error] darktable not found!', fg='red')
-        exit(1)
-    elif darktable is None and use_flatpak is True:
-        click.secho('[Error] org.darktable.Darktable not found!', fg='red')
-        exit(1)
 
     cmd = shlex.split(darktable + ' ' + cmd_options)
     click.secho('[Running] ' + darktable + ' ' + cmd_options)
@@ -139,10 +116,21 @@ def new_project(project_path, init=False):
 
 @cli.command('open')
 @click.argument('project_path')
-@click.option('-d', '--detach', is_flag=True, help="Detach darktable into it's own process")
-@click.option('--use-flatpak', is_flag=True, help="Use the Darktable flatpak")
-def open_project(project_path, detach=False, use_flatpak=False):
+@click.option('-d', '--detach', is_flag=True, help="Detach darktable into it's own process",)
+@click.option('--darktable', type=str, help="/path/to/command (command if in PATH)", default='darktable')
+@click.option('--use-flatpak', is_flag=True, help="Use the Darktable flatpak. Ignores --darktable")
+def open_project(darktable, project_path, detach=False, use_flatpak=False):
     """Open an existing project"""
+
+    # Check if darktable is runnable before modifying the project library
+    if use_flatpak is True:
+        darktable = 'org.darktable.Darktable'
+
+    which_darktable = shutil.which(darktable)
+
+    if which_darktable is None:
+        click.secho('[ERROR] "' + darktable + '" not found!', fg='red')
+        exit(1)
 
     project_path = _format_path(project_path)
     _set_config_paths(project_path)
@@ -176,7 +164,7 @@ def open_project(project_path, detach=False, use_flatpak=False):
         else:
             click.echo('Locations match')
 
-    _launch_dt(use_flatpak, detach)
+    _launch_dt(which_darktable, detach)
 
 
 if __name__ == '__main__':
