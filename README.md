@@ -20,7 +20,6 @@ pip3 install --user click osutil
 {apt/dnf/pamac} install darktable
 flatpak install flathub org.darktable.Darktable
 ```
-Note: `dtl` looks for _`/usr/bin/darktable`_.
 
 ## Usage
 
